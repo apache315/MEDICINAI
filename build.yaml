@@ -1,0 +1,8 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        # Only run drift_dev on database-related files
+        generate_for:
+          include:
+            - lib/database/**
