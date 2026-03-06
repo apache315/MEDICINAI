@@ -91,7 +91,7 @@ void main() {
 
   group('Summary banner logic', () {
     // Tests for the "X/Y farmaci presi" counter logic
-    List<({bool isTaken, bool isSkipped})> _items(
+    List<({bool isTaken, bool isSkipped})> makeItems(
       List<({bool taken, bool skipped})> data,
     ) =>
         data.map((d) => (isTaken: d.taken, isSkipped: d.skipped)).toList();
@@ -100,7 +100,7 @@ void main() {
         items.where((i) => i.isTaken).length;
 
     test('all taken: allDone is true', () {
-      final items = _items([
+      final items = makeItems([
         (taken: true, skipped: false),
         (taken: true, skipped: false),
       ]);
@@ -109,7 +109,7 @@ void main() {
     });
 
     test('none taken: allDone is false', () {
-      final items = _items([
+      final items = makeItems([
         (taken: false, skipped: false),
         (taken: false, skipped: true),
       ]);
@@ -118,7 +118,7 @@ void main() {
     });
 
     test('partial: 1 of 3', () {
-      final items = _items([
+      final items = makeItems([
         (taken: true, skipped: false),
         (taken: false, skipped: false),
         (taken: false, skipped: true),
