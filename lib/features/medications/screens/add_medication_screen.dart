@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../database/app_database.dart';
+import '../../../services/notification_service.dart';
 
 // Valid dose units
 const _units = ['mg', 'mcg', 'g', 'ml', 'UI', 'gocce', 'compresse', 'capsule', 'bustine'];
@@ -124,6 +125,9 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
           ),
         );
       }
+
+      // Reschedule all notifications to include the new reminders
+      await NotificationService.scheduleAllReminders(db);
 
       if (!mounted) return;
       messenger.showSnackBar(

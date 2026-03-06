@@ -6,6 +6,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../database/app_database.dart';
 import '../../../services/llm_service.dart';
+import '../../../services/notification_service.dart';
 
 part 'review_provider.g.dart';
 
@@ -62,14 +63,15 @@ class ReviewNotifier extends _$ReviewNotifier {
             medicationId: medId,
             hour: hour,
             minute: minute,
-            // Notification IDs are finalized in Step 6 (notification service).
-            // Use a deterministic placeholder for now.
             notificationId: medId * 100 + i,
             createdAt: now,
           ),
         );
       }
     }
+
+    // Reschedule all notifications to reflect the new reminders
+    await NotificationService.scheduleAllReminders(db);
   }
 
   String _buildFrequencyDescription(ExtractedMedication med) {
