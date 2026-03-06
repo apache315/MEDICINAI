@@ -45,8 +45,6 @@ dependencies:
   # OCR on-device (ML Kit, no cloud, free, on-device)
   google_mlkit_text_recognition: ^0.15.0
 
-  # LLM on-device (MIT license, GGUF, tool calling, Android+iOS)
-  llamafu: ^0.1.0
 
   # UI
   google_fonts: ^6.2.1
