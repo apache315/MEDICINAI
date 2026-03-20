@@ -59,42 +59,83 @@ Il modello viene scaricato al primo avvio dall'app (da HuggingFace), non è incl
 
 ### Cosa abbiamo sviluppato
 
-#### 1. Tool calling per output strutturato garantito
+#### 1. Patch al build system di fllama per Android arm64
 
-Il problema principale con i modelli piccoli è che producono testo libero invece di JSON pulito. La soluzione è usare il **tool calling con grammar enforcement** di llama.cpp: si passa uno schema JSON al modello e llama.cpp usa una grammatica context-free per costringere l'output a rispettare esattamente quello schema — zero errori di parsing.
+fllama (come dipendenza git) non compilava su Android per due motivi che abbiamo risolto direttamente nei file della cache pub:
+
+**`fllama/android/build.gradle`** — aggiunto `abiFilters 'arm64-v8a'`:
+```groovy
+ndk {
+    abiFilters 'arm64-v8a'  // llama.cpp supporta solo arm64 su mobile
+}
+```
+Senza questo, Gradle tentava di compilare anche per x86/armeabi-v7a e falliva perché llama.cpp non include quei target.
+
+**`fllama/src/CMakeLists.txt`** — disabilitato httplib e il server llama:
+```cmake
+set(LLAMA_HTTPLIB OFF CACHE BOOL "Disable httplib for downloading" FORCE)
+set(LLAMA_BUILD_SERVER OFF CACHE BOOL "Disable server (requires httplib)" FORCE)
+```
+llama.cpp include di default un HTTP server (per uso desktop) che tira dentro `cpp-httplib`. Su Android questo causava errori di linking. Disabilitando il server la build passa.
+
+**`fllama/src/llama.cpp/common/CMakeLists.txt`** — link condizionale a cpp-httplib:
+```cmake
+if (LLAMA_HTTPLIB)
+    target_link_libraries(${TARGET} PRIVATE cpp-httplib)
+endif()
+```
+
+#### 2. Inferenza multimodale: immagini come base64 data URI
+
+Il meccanismo di riconoscimento immagini in fllama funziona così (da `fllama_llava.cpp`):
+
+```cpp
+// fllama_llava.cpp — costanti che identificano il tag immagine nel prompt
+static const char *IMG_BASE64_TAG_BEGIN_PART1 = "<img src=\"data:image/";
+static const char *IMG_BASE64_TAG_BEGIN_PART2 = "base64,";
+static const char *IMG_BASE64_TAG_END = "\">";
+```
+
+`prompt_contains_image()` cerca questo pattern nel testo **post chat-template** (non nel messaggio raw). Se trovato, `llava_image_embed_make_with_prompt_base64()` decodifica il base64 e carica l'immagine nel context clip tramite il vision projector.
+
+Il nostro codice Dart genera esattamente quel formato:
+
+```dart
+// lib/services/llm_service.dart
+final base64Image = base64Encode(await File(imagePath).readAsBytes());
+final userText =
+    '<img src="data:image/jpeg;base64,$base64Image">\n\n'
+    'Estrai i farmaci dalla ricetta in questa immagine.';
+```
+
+Il `mmprojPath` (`mmproj-F16.gguf`) è il vision projector che proietta l'immagine nello spazio embedding del modello linguistico — senza di esso il modello vede solo testo.
+
+#### 3. Tool calling per output JSON strutturato garantito
+
+I modelli piccoli (0.8B) tendono a produrre testo libero invece di JSON valido. La soluzione è il **tool calling con grammar enforcement**: llama.cpp usa una grammatica context-free derivata dal JSON Schema per vincolare token-per-token l'output del modello, rendendo impossibile generare JSON malformato.
 
 ```dart
 // lib/services/llm_service.dart
 final request = OpenAiRequest(
   modelPath: modelPath,
-  mmprojPath: mmprojPath,         // vision projector per le immagini
-  temperature: 0.05,              // deterministico
+  mmprojPath: mmprojPath,
+  temperature: 0.05,              // quasi-deterministico
   tools: [
     Tool(
       name: 'extract_medications',
-      description: '...',
-      jsonSchema: _toolSchema,    // JSON Schema con name, dose, unit, times_per_day...
+      description: 'Estrae la lista strutturata dei farmaci dalla ricetta medica',
+      jsonSchema: _toolSchema,    // JSON Schema: name, dose, unit, times_per_day...
     ),
   ],
-  toolChoice: ToolChoice.required, // forza l'uso del tool (no testo libero)
-  ...
+  toolChoice: ToolChoice.required, // forza il tool — zero testo libero
 );
 ```
 
-Il callback di `fllamaChat` restituisce due parametri: `(String rawText, String openaiJson, bool done)`. Il secondo è la risposta in formato OpenAI con `choices[0].message.tool_calls` — lì si trovano gli argomenti strutturati del tool.
+`fllamaChat` ha un callback `(String rawText, String openaiJson, bool done)`. Il secondo parametro è la risposta formato OpenAI con `choices[0].message.tool_calls[0].function.arguments` — gli argomenti JSON già validati contro lo schema.
 
-#### 2. Immagini come base64 data URI (LLaVA-style)
+#### 4. Fallback OCR → LLM testuale
 
-fllama riconosce le immagini cercando il pattern `<img src="data:image/...;base64,...">` nel testo del messaggio utente. Viene poi estratta e caricata nel context del modello tramite il vision projector.
-
-```dart
-final base64Image = base64Encode(await File(imagePath).readAsBytes());
-final userText = '<img src="data:image/jpeg;base64,$base64Image">\n\nEstrai i farmaci...';
-```
-
-#### 3. Fallback OCR → LLM testuale
-
-Se l'immagine non è riconoscibile visivamente, ML Kit estrae il testo OCR e lo passa come testo puro al modello (senza immagine). Questo migliora l'affidabilità su ricette con scrittura difficile.
+Se l'immagine non supera la soglia di confidenza del riconoscimento visivo, ML Kit estrae il testo OCR e lo passa come testo puro al modello (senza `<img>` tag). Questo copre ricette con scrittura a mano o foto sfocate dove il vision projector faticherebbe.
 
 ---
 
