@@ -1,5 +1,8 @@
-// Model download service: handles GGUF model download with resume/retry,
+// Model download service: handles GGUF model + mmproj download with resume/retry,
 // SHA256 integrity check, and disk space validation.
+//
+// Both the LLM model (~500 MB) and the vision projector mmproj (~205 MB) must be
+// present before ModelReady is returned. Total download ~705 MB.
 
 import 'dart:io';
 
@@ -30,7 +33,7 @@ class ModelDownloading extends ModelState {
     required this.totalBytes,
   });
 
-  final double progress; // 0.0 to 1.0
+  final double progress; // 0.0 to 1.0 across both files combined
   final int downloadedBytes;
   final int totalBytes;
 
@@ -40,8 +43,9 @@ class ModelDownloading extends ModelState {
 }
 
 class ModelReady extends ModelState {
-  const ModelReady({required this.modelPath});
+  const ModelReady({required this.modelPath, required this.mmprojPath});
   final String modelPath;
+  final String mmprojPath; // vision projector for multimodal inference
 }
 
 class ModelError extends ModelState {
@@ -68,109 +72,160 @@ class ModelDownloadService {
     return p.join(dir.path, AppConstants.modelFileName);
   }
 
-  // Checks if the model file exists and (optionally) verifies its hash.
+  Future<String> _getMmprojPath() async {
+    final dir = await getApplicationSupportDirectory();
+    return p.join(dir.path, AppConstants.mmprojFileName);
+  }
+
+  // Returns ModelReady only if BOTH model and mmproj files are present and valid.
   Future<ModelState> checkStatus() async {
     final modelPath = await _getModelPath();
-    final file = File(modelPath);
+    final mmprojPath = await _getMmprojPath();
+    final modelFile = File(modelPath);
+    final mmprojFile = File(mmprojPath);
 
-    if (!file.existsSync()) return const ModelNotDownloaded();
+    if (!modelFile.existsSync() || !mmprojFile.existsSync()) {
+      return const ModelNotDownloaded();
+    }
 
-    // If we have a known hash, verify integrity
     if (AppConstants.modelSha256.isNotEmpty) {
-      final isValid = await _verifySha256(file, AppConstants.modelSha256);
-      if (!isValid) {
-        // Delete corrupted file, will re-download
-        await file.delete();
+      if (!await _verifySha256(modelFile, AppConstants.modelSha256)) {
+        await modelFile.delete();
         return const ModelNotDownloaded();
       }
     }
 
-    return ModelReady(modelPath: modelPath);
+    if (AppConstants.mmprojSha256.isNotEmpty) {
+      if (!await _verifySha256(mmprojFile, AppConstants.mmprojSha256)) {
+        await mmprojFile.delete();
+        return const ModelNotDownloaded();
+      }
+    }
+
+    return ModelReady(modelPath: modelPath, mmprojPath: mmprojPath);
   }
 
-  // Checks available disk space (bytes) on the device.
   Future<bool> hasEnoughDiskSpace({int requiredBytes = 1024 * 1024 * 1024}) async {
     try {
       final dir = await getApplicationSupportDirectory();
-      // FileStat doesn't expose free space on mobile; assume sufficient space
-      final exists = dir.existsSync();
-      return exists; // If app support dir exists, storage is accessible
+      return dir.existsSync();
     } catch (_) {
-      return true; // Optimistic default
+      return true;
     }
   }
 
-  // Downloads the model with resume support (HTTP Range headers).
+  // Downloads both model and mmproj with resume support (HTTP Range headers).
+  // Progress is reported as a combined value across both files.
   // Calls [onProgress] with (downloadedBytes, totalBytes, progress).
   Future<ModelState> downloadModel({
     required void Function(int downloaded, int total, double progress)
         onProgress,
   }) async {
-    final modelPath = await _getModelPath();
-    final file = File(modelPath);
     _cancelToken = CancelToken();
 
     try {
-      // Determine already-downloaded bytes for resume
-      final existingBytes = file.existsSync() ? file.lengthSync() : 0;
+      final modelPath = await _getModelPath();
+      final mmprojPath = await _getMmprojPath();
 
-      final headResponse = await _dio.head<void>(
+      // Fetch content-lengths for both files upfront so we can report combined progress.
+      final modelHead = await _dio.head<void>(
         AppConstants.modelDownloadUrl,
         cancelToken: _cancelToken,
       );
-      final totalBytes = int.tryParse(
-            headResponse.headers.value('content-length') ?? '',
-          ) ??
-          0;
-
-      // Skip download if already complete
-      if (existingBytes > 0 && existingBytes == totalBytes) {
-        return ModelReady(modelPath: modelPath);
-      }
-
-      final headers = <String, dynamic>{};
-      if (existingBytes > 0) {
-        headers['Range'] = 'bytes=$existingBytes-';
-      }
-
-      await _dio.download(
-        AppConstants.modelDownloadUrl,
-        modelPath,
+      final mmprojHead = await _dio.head<void>(
+        AppConstants.mmprojDownloadUrl,
         cancelToken: _cancelToken,
-        deleteOnError: false, // Keep partial download for resume
-        options: Options(headers: headers),
-        onReceiveProgress: (received, total) {
-          final actualTotal = total > 0 ? total : totalBytes;
-          final totalDownloaded = existingBytes + received;
-          final progress = actualTotal > 0
-              ? (totalDownloaded / actualTotal).clamp(0.0, 1.0)
-              : 0.0;
-          onProgress(totalDownloaded, actualTotal, progress);
-        },
       );
+      final modelTotal =
+          int.tryParse(modelHead.headers.value('content-length') ?? '') ?? 0;
+      final mmprojTotal =
+          int.tryParse(mmprojHead.headers.value('content-length') ?? '') ?? 0;
+      final grandTotal = modelTotal + mmprojTotal;
 
-      // Verify integrity if hash is configured
-      if (AppConstants.modelSha256.isNotEmpty) {
-        final isValid = await _verifySha256(file, AppConstants.modelSha256);
-        if (!isValid) {
-          await file.delete();
-          return const ModelError(
-            message: 'Il file scaricato è corrotto. Riprova.',
-          );
-        }
-      }
+      // Download model (phase 1 of 2)
+      final modelResult = await _downloadFile(
+        url: AppConstants.modelDownloadUrl,
+        destPath: modelPath,
+        expectedTotal: modelTotal,
+        priorBytes: 0,
+        grandTotal: grandTotal,
+        onProgress: onProgress,
+        sha256: AppConstants.modelSha256,
+      );
+      if (modelResult != null) return modelResult; // error
 
-      return ModelReady(modelPath: modelPath);
+      // Download mmproj (phase 2 of 2)
+      final mmprojResult = await _downloadFile(
+        url: AppConstants.mmprojDownloadUrl,
+        destPath: mmprojPath,
+        expectedTotal: mmprojTotal,
+        priorBytes: modelTotal, // offset so progress is cumulative
+        grandTotal: grandTotal,
+        onProgress: onProgress,
+        sha256: AppConstants.mmprojSha256,
+      );
+      if (mmprojResult != null) return mmprojResult; // error
+
+      return ModelReady(modelPath: modelPath, mmprojPath: mmprojPath);
     } on DioException catch (e) {
       if (CancelToken.isCancel(e)) {
         return const ModelError(message: 'Download annullato.');
       }
-      return ModelError(
-        message: _friendlyDioError(e),
-      );
+      return ModelError(message: _friendlyDioError(e));
     } catch (e) {
       return ModelError(message: 'Errore imprevisto: ${e.toString()}');
     }
+  }
+
+  // Downloads a single file with resume support.
+  // Returns a ModelError on failure, or null on success.
+  Future<ModelError?> _downloadFile({
+    required String url,
+    required String destPath,
+    required int expectedTotal,
+    required int priorBytes, // bytes already downloaded in prior phases
+    required int grandTotal,
+    required void Function(int, int, double) onProgress,
+    required String sha256,
+  }) async {
+    final file = File(destPath);
+    final existingBytes = file.existsSync() ? file.lengthSync() : 0;
+
+    // Already complete — skip download.
+    if (existingBytes > 0 && existingBytes == expectedTotal) {
+      onProgress(priorBytes + existingBytes, grandTotal,
+          grandTotal > 0 ? (priorBytes + existingBytes) / grandTotal : 1.0);
+      return null;
+    }
+
+    final headers = <String, dynamic>{};
+    if (existingBytes > 0) {
+      headers['Range'] = 'bytes=$existingBytes-';
+    }
+
+    await _dio.download(
+      url,
+      destPath,
+      cancelToken: _cancelToken,
+      deleteOnError: false, // keep partial for resume
+      options: Options(headers: headers),
+      onReceiveProgress: (received, _) {
+        final fileDone = existingBytes + received;
+        final totalDone = priorBytes + fileDone;
+        final progress =
+            grandTotal > 0 ? (totalDone / grandTotal).clamp(0.0, 1.0) : 0.0;
+        onProgress(totalDone, grandTotal, progress);
+      },
+    );
+
+    if (sha256.isNotEmpty) {
+      if (!await _verifySha256(file, sha256)) {
+        await file.delete();
+        return const ModelError(message: 'Il file scaricato è corrotto. Riprova.');
+      }
+    }
+
+    return null;
   }
 
   void cancelDownload() {
@@ -179,11 +234,13 @@ class ModelDownloadService {
 
   Future<void> deleteModel() async {
     final modelPath = await _getModelPath();
-    final file = File(modelPath);
-    if (file.existsSync()) await file.delete();
+    final mmprojPath = await _getMmprojPath();
+    for (final path in [modelPath, mmprojPath]) {
+      final file = File(path);
+      if (file.existsSync()) await file.delete();
+    }
   }
 
-  // Verifies the SHA256 hash of a file against an expected hex string.
   Future<bool> _verifySha256(File file, String expectedHex) async {
     final stream = file.openRead();
     final digest = await sha256.bind(stream).first;
@@ -214,7 +271,6 @@ ModelDownloadService modelDownloadService(ModelDownloadServiceRef ref) { // igno
   return ModelDownloadService();
 }
 
-// Notifier that manages the download state for the UI
 @riverpod
 class ModelDownloadNotifier extends _$ModelDownloadNotifier {
   @override

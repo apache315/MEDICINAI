@@ -1,33 +1,40 @@
-// Unit tests for PrescriptionParser with mocked OCR and LLM services
+// Unit tests for PrescriptionParser with mocked LLM service.
+// OCR is no longer part of the pipeline — images are passed directly to the LLM.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mediremind/services/llm_service.dart';
-import 'package:mediremind/services/ocr_service.dart';
 import 'package:mediremind/services/prescription_parser.dart';
 
 // --- Test doubles ---
 
-class FakeOcrService implements OcrService {
-  FakeOcrService(this._text);
-  final String _text;
+class _NotReadyLlmService implements LlmService {
+  @override
+  bool get isModelReady => false;
 
   @override
-  Future<String> extractText(String imagePath) async => _text;
+  Future<void> loadModel(String modelPath, {String? mmprojPath}) async {}
+
+  @override
+  Future<List<ExtractedMedication>> extractMedications(String imagePath) async =>
+      [];
 
   @override
   Future<void> dispose() async {}
 }
 
-class _AlwaysNotReadyMock implements LlmService {
+class _MissingMmprojLlmService implements LlmService {
   @override
-  bool get isModelReady => false;
+  bool get isModelReady => true;
 
   @override
-  Future<void> loadModel(String modelPath) async {}
+  Future<void> loadModel(String modelPath, {String? mmprojPath}) async {}
 
   @override
-  Future<List<ExtractedMedication>> extractMedications(String ocrText) async =>
-      [];
+  Future<List<ExtractedMedication>> extractMedications(String imagePath) async {
+    throw StateError(
+      'Il proiettore visivo (mmproj) non è disponibile.',
+    );
+  }
 
   @override
   Future<void> dispose() async {}
@@ -76,8 +83,6 @@ void main() {
 
     setUp(() {
       parser = PrescriptionParser(
-        ocrService:
-            FakeOcrService('Aspirina 100mg 1 volta al giorno per 30 giorni'),
         llmService: MockLlmService(response: _singleMedResponse),
       );
     });
@@ -100,10 +105,9 @@ void main() {
       expect(med.unit, equals('mg'));
     });
 
-    test('tracks status transitions via callback', () async {
+    test('emits analyzingWithAi status via callback', () async {
       final statuses = <ParseStatus>[];
       await parser.parse('/fake/path.jpg', onStatus: statuses.add);
-      expect(statuses, contains(ParseStatus.extractingText));
       expect(statuses, contains(ParseStatus.analyzingWithAi));
     });
   });
@@ -113,9 +117,6 @@ void main() {
 
     setUp(() {
       parser = PrescriptionParser(
-        ocrService: FakeOcrService(
-          'Atorvastatina 20mg die\nRamipril 5mg die\nMetformina 500mg 2 volte die',
-        ),
         llmService: MockLlmService(response: _multiMedResponse),
       );
     });
@@ -138,41 +139,33 @@ void main() {
     });
   });
 
-  group('PrescriptionParser — empty OCR (unreadable image)', () {
-    late PrescriptionParser parser;
-
-    setUp(() {
-      parser = PrescriptionParser(
-        ocrService: FakeOcrService(''),
+  group('PrescriptionParser — LLM returns empty list', () {
+    test('returns done status with empty medications', () async {
+      final parser = PrescriptionParser(
         llmService: MockLlmService(response: []),
       );
-    });
-
-    test('returns error when OCR extracts no text', () async {
       final result = await parser.parse('/fake/blurry.jpg');
+      // Parser succeeds; the review screen handles the empty-list UI case.
+      expect(result.isSuccess, isTrue);
+      expect(result.medications, isEmpty);
+    });
+  });
+
+  group('PrescriptionParser — model not ready', () {
+    test('returns error when model is not loaded', () async {
+      final parser = PrescriptionParser(llmService: _NotReadyLlmService());
+      final result = await parser.parse('/fake/path.jpg');
       expect(result.hasError, isTrue);
-    });
-
-    test('error message is non-empty', () async {
-      final result = await parser.parse('/fake/blurry.jpg');
       expect(result.error, isNotEmpty);
     });
   });
 
-  group('PrescriptionParser — AI not ready', () {
-    late PrescriptionParser parser;
-
-    setUp(() {
-      parser = PrescriptionParser(
-        ocrService: FakeOcrService('Aspirina 100mg'),
-        llmService: _AlwaysNotReadyMock(),
-      );
-    });
-
-    test('returns error but includes OCR text for manual review', () async {
+  group('PrescriptionParser — mmproj missing', () {
+    test('returns error when mmproj projector is not available', () async {
+      final parser = PrescriptionParser(llmService: _MissingMmprojLlmService());
       final result = await parser.parse('/fake/path.jpg');
       expect(result.hasError, isTrue);
-      expect(result.ocrText, equals('Aspirina 100mg'));
+      expect(result.error, contains('proiettore visivo'));
     });
   });
 

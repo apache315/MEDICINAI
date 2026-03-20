@@ -6,23 +6,7 @@ part of 'scan_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$ocrServiceHash() => r'7746b46fd1f3895aff7c82c3c16fb2f76863ff00';
-
-/// See also [ocrService].
-@ProviderFor(ocrService)
-final ocrServiceProvider = AutoDisposeProvider<OcrService>.internal(
-  ocrService,
-  name: r'ocrServiceProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$ocrServiceHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef OcrServiceRef = AutoDisposeProviderRef<OcrService>;
-String _$prescriptionScanHash() => r'6dd9a2b35d41ca1e1c05fb9982ed0ab38f4203f8';
+String _$prescriptionScanHash() => r'5dfd8f3652ec4339743481d2eb443b28ec19bd39';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -55,21 +39,15 @@ class PrescriptionScanFamily extends Family<AsyncValue<ParseResult>> {
   const PrescriptionScanFamily();
 
   /// See also [prescriptionScan].
-  PrescriptionScanProvider call(
-    String imagePath,
-  ) {
-    return PrescriptionScanProvider(
-      imagePath,
-    );
+  PrescriptionScanProvider call(String imagePath) {
+    return PrescriptionScanProvider(imagePath);
   }
 
   @override
   PrescriptionScanProvider getProviderOverride(
     covariant PrescriptionScanProvider provider,
   ) {
-    return call(
-      provider.imagePath,
-    );
+    return call(provider.imagePath);
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -90,24 +68,19 @@ class PrescriptionScanFamily extends Family<AsyncValue<ParseResult>> {
 /// See also [prescriptionScan].
 class PrescriptionScanProvider extends AutoDisposeFutureProvider<ParseResult> {
   /// See also [prescriptionScan].
-  PrescriptionScanProvider(
-    String imagePath,
-  ) : this._internal(
-          (ref) => prescriptionScan(
-            ref as PrescriptionScanRef,
-            imagePath,
-          ),
-          from: prescriptionScanProvider,
-          name: r'prescriptionScanProvider',
-          debugGetCreateSourceHash:
-              const bool.fromEnvironment('dart.vm.product')
-                  ? null
-                  : _$prescriptionScanHash,
-          dependencies: PrescriptionScanFamily._dependencies,
-          allTransitiveDependencies:
-              PrescriptionScanFamily._allTransitiveDependencies,
-          imagePath: imagePath,
-        );
+  PrescriptionScanProvider(String imagePath)
+    : this._internal(
+        (ref) => prescriptionScan(ref as PrescriptionScanRef, imagePath),
+        from: prescriptionScanProvider,
+        name: r'prescriptionScanProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$prescriptionScanHash,
+        dependencies: PrescriptionScanFamily._dependencies,
+        allTransitiveDependencies:
+            PrescriptionScanFamily._allTransitiveDependencies,
+        imagePath: imagePath,
+      );
 
   PrescriptionScanProvider._internal(
     super._createNotifier, {
@@ -173,5 +146,6 @@ class _PrescriptionScanProviderElement
   @override
   String get imagePath => (origin as PrescriptionScanProvider).imagePath;
 }
+
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

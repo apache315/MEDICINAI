@@ -41,3 +41,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# AI model files (too large for git — download at runtime)
+**/*.gguf
+
+# Machine-specific files
+/android/local.properties
+
+# Logcat / debug logs
+logcat_*.txt
+flutter_*.log

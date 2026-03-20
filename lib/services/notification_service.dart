@@ -60,18 +60,19 @@ class NotificationService {
 
   // --- Permissions ---
 
-  // Requests notification permissions on Android 13+ and iOS.
-  // Returns true if granted or not required on this platform/version.
+  // Requests notification + exact alarm permissions.
+  // Returns true if notification permission is granted.
   static Future<bool> requestPermissions() async {
-    // Android
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (android != null) {
+      // Notification permission (Android 13+)
       final granted = await android.requestNotificationsPermission();
+      // Exact alarm permission (Android 12+): opens system settings page
+      await android.requestExactAlarmsPermission();
       return granted ?? false;
     }
 
-    // iOS
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
     if (ios != null) {
@@ -83,6 +84,17 @@ class NotificationService {
       return granted ?? false;
     }
 
+    return true;
+  }
+
+  // Returns true if the app can schedule exact alarms (Android 12+).
+  // Always true on older Android and iOS.
+  static Future<bool> canScheduleExactAlarms() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android != null) {
+      return await android.canScheduleExactNotifications() ?? true;
+    }
     return true;
   }
 
@@ -128,14 +140,17 @@ class NotificationService {
   }) async {
     final scheduledDate = _nextInstanceOf(hour, minute);
 
+    // alarmClock uses AlarmManager.setAlarmClock() — highest priority on Android,
+    // cannot be suppressed by MIUI/EMUI/OneUI battery optimization.
+    // Shows clock icon in status bar. Requires SCHEDULE_EXACT_ALARM or USE_EXACT_ALARM.
     await _plugin.zonedSchedule(
       notificationId,
       title,
       body,
       scheduledDate,
-      _buildNotificationDetails(),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time, // daily repeat
+      _buildNotificationDetails(body),
+      androidScheduleMode: AndroidScheduleMode.alarmClock,
+      matchDateTimeComponents: DateTimeComponents.time,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
@@ -144,6 +159,24 @@ class NotificationService {
   // Cancels the notification for a specific reminder ID.
   static Future<void> cancelReminder(int notificationId) async {
     await _plugin.cancel(notificationId);
+  }
+
+  // Schedules a test notification in [delaySeconds] seconds.
+  // Use from the settings screen to verify the whole pipeline works.
+  static Future<void> scheduleTestNotification({int delaySeconds = 10}) async {
+    if (!_initialized) await initialize();
+    final now = tz.TZDateTime.now(tz.local);
+    final when = now.add(Duration(seconds: delaySeconds));
+    await _plugin.zonedSchedule(
+      99999,
+      'Test promemoria MediRemind',
+      'Il sistema di notifiche funziona correttamente!',
+      when,
+      _buildNotificationDetails('Il sistema di notifiche funziona correttamente!'),
+      androidScheduleMode: AndroidScheduleMode.alarmClock,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
   }
 
   // --- Helpers ---
@@ -165,20 +198,22 @@ class NotificationService {
     return scheduled;
   }
 
-  static NotificationDetails _buildNotificationDetails() {
-    return const NotificationDetails(
+  static NotificationDetails _buildNotificationDetails(String body) {
+    return NotificationDetails(
       android: AndroidNotificationDetails(
         AppConstants.notificationChannelId,
         AppConstants.notificationChannelName,
         channelDescription: AppConstants.notificationChannelDescription,
-        importance: Importance.high,
+        importance: Importance.max,
         priority: Priority.high,
         enableVibration: true,
         playSound: true,
+        fullScreenIntent: true,
+        category: AndroidNotificationCategory.alarm,
         // Large-text style for elderly readability
-        styleInformation: BigTextStyleInformation(''),
+        styleInformation: BigTextStyleInformation(body),
       ),
-      iOS: DarwinNotificationDetails(
+      iOS: const DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,

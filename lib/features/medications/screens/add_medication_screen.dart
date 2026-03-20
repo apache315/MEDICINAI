@@ -333,7 +333,7 @@ class _UnitDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       onChanged: onChanged,
       style: const TextStyle(
         fontSize: AppConstants.bodyFontSize,

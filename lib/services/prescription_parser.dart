@@ -1,12 +1,10 @@
-// PrescriptionParser: orchestrates OCR → LLM → structured medications.
-// This is the main entry point for the AI-assisted scan flow.
+// PrescriptionParser: passes the prescription image directly to the LLM
+// for multimodal extraction. OCR is no longer needed.
 
-import 'ocr_service.dart';
 import 'llm_service.dart';
 
 enum ParseStatus {
   idle,
-  extractingText,
   analyzingWithAi,
   done,
   error,
@@ -15,19 +13,16 @@ enum ParseStatus {
 class ParseResult {
   const ParseResult({
     required this.status,
-    required this.ocrText,
     required this.medications,
     this.error,
   });
 
   const ParseResult.idle()
       : status = ParseStatus.idle,
-        ocrText = '',
         medications = const [],
         error = null;
 
   final ParseStatus status;
-  final String ocrText;
   final List<ExtractedMedication> medications;
   final String? error;
 
@@ -36,60 +31,49 @@ class ParseResult {
 }
 
 class PrescriptionParser {
-  PrescriptionParser({
-    required this.ocrService,
-    required this.llmService,
-  });
+  PrescriptionParser({required this.llmService});
 
-  final OcrService ocrService;
   final LlmService llmService;
 
-  // Parses a prescription image, emitting intermediate status via [onStatus].
-  // Returns the final ParseResult regardless of success or failure.
+  // Passes [imagePath] directly to the multimodal LLM.
+  // Emits intermediate status via [onStatus].
   Future<ParseResult> parse(
     String imagePath, {
     void Function(ParseStatus)? onStatus,
   }) async {
     try {
-      // Step 1: OCR
-      onStatus?.call(ParseStatus.extractingText);
-      final ocrText = await ocrService.extractText(imagePath);
-
-      if (ocrText.trim().isEmpty) {
+      if (!llmService.isModelReady) {
         return const ParseResult(
           status: ParseStatus.error,
-          ocrText: '',
           medications: [],
           error:
-              'Impossibile leggere il testo dalla ricetta. Riprova con una foto più nitida.',
+              'Il modello AI non è ancora disponibile. Scarica il modello dalla schermata principale.',
         );
       }
 
-      if (!llmService.isModelReady) {
-        // Model not downloaded yet — return OCR text so user can still
-        // manually review and enter medications.
-        return ParseResult(
-          status: ParseStatus.error,
-          ocrText: ocrText,
-          medications: const [],
-          error:
-              'Il modello AI non è ancora disponibile. Testo estratto dalla ricetta disponibile per revisione manuale.',
-        );
-      }
-
-      // Step 2: LLM extraction
       onStatus?.call(ParseStatus.analyzingWithAi);
-      final medications = await llmService.extractMedications(ocrText);
+      final medications = await llmService.extractMedications(imagePath);
 
       return ParseResult(
         status: ParseStatus.done,
-        ocrText: ocrText,
         medications: medications,
+      );
+    } on StateError catch (e) {
+      // Raised when mmproj is missing or chat handler is incompatible.
+      return ParseResult(
+        status: ParseStatus.error,
+        medications: const [],
+        error: e.message,
+      );
+    } on UnsupportedError catch (e) {
+      return ParseResult(
+        status: ParseStatus.error,
+        medications: const [],
+        error: e.message ?? 'Modello non supportato.',
       );
     } catch (e) {
       return ParseResult(
         status: ParseStatus.error,
-        ocrText: '',
         medications: const [],
         error: 'Errore durante l\'analisi: ${e.toString()}',
       );

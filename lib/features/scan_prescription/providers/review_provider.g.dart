@@ -6,20 +6,23 @@ part of 'review_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$reviewNotifierHash() => r'331d1a6f7559e357de917c736f76b255905d84c7';
+String _$reviewNotifierHash() => r'7d7bb244cc6825033732eb6e88fb882725a1b4d6';
 
 /// See also [ReviewNotifier].
 @ProviderFor(ReviewNotifier)
-final reviewNotifierProvider = AutoDisposeNotifierProvider<ReviewNotifier,
-    List<ExtractedMedication>>.internal(
-  ReviewNotifier.new,
-  name: r'reviewNotifierProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$reviewNotifierHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final reviewNotifierProvider =
+    AutoDisposeNotifierProvider<
+      ReviewNotifier,
+      List<ExtractedMedication>
+    >.internal(
+      ReviewNotifier.new,
+      name: r'reviewNotifierProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$reviewNotifierHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 typedef _$ReviewNotifier = AutoDisposeNotifier<List<ExtractedMedication>>;
 // ignore_for_file: type=lint

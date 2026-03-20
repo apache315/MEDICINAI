@@ -13,14 +13,14 @@ String _$modelDownloadServiceHash() =>
 @ProviderFor(modelDownloadService)
 final modelDownloadServiceProvider =
     AutoDisposeProvider<ModelDownloadService>.internal(
-  modelDownloadService,
-  name: r'modelDownloadServiceProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$modelDownloadServiceHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+      modelDownloadService,
+      name: r'modelDownloadServiceProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$modelDownloadServiceHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
@@ -30,16 +30,19 @@ String _$modelDownloadNotifierHash() =>
 
 /// See also [ModelDownloadNotifier].
 @ProviderFor(ModelDownloadNotifier)
-final modelDownloadNotifierProvider = AutoDisposeAsyncNotifierProvider<
-    ModelDownloadNotifier, ModelState>.internal(
-  ModelDownloadNotifier.new,
-  name: r'modelDownloadNotifierProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$modelDownloadNotifierHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+final modelDownloadNotifierProvider =
+    AutoDisposeAsyncNotifierProvider<
+      ModelDownloadNotifier,
+      ModelState
+    >.internal(
+      ModelDownloadNotifier.new,
+      name: r'modelDownloadNotifierProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$modelDownloadNotifierHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 typedef _$ModelDownloadNotifier = AutoDisposeAsyncNotifier<ModelState>;
 // ignore_for_file: type=lint

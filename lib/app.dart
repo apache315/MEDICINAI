@@ -6,12 +6,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'database/app_database.dart';
+import 'services/notification_service.dart';
 
-class MediRemindApp extends ConsumerWidget {
+class MediRemindApp extends ConsumerStatefulWidget {
   const MediRemindApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MediRemindApp> createState() => _MediRemindAppState();
+}
+
+class _MediRemindAppState extends ConsumerState<MediRemindApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Reschedule all reminders on every app start.
+    // This recovers from device reboots, battery optimization kills, etc.
+    _rescheduleOnStartup();
+  }
+
+  Future<void> _rescheduleOnStartup() async {
+    try {
+      final db = ref.read(appDatabaseProvider);
+      await NotificationService.scheduleAllReminders(db);
+    } catch (_) {
+      // Non-critical: if this fails the user can reschedule manually from settings
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
@@ -19,7 +43,6 @@ class MediRemindApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       routerConfig: router,
-      // Italian localization delegates
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,

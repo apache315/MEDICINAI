@@ -3,14 +3,21 @@
 class AppConstants {
   AppConstants._();
 
-  // Model info
-  static const String modelFileName = 'qwen3.5-0.8b-instruct-q4_k_m.gguf';
+  // --- LLM model: Qwen3.5-0.8B Q4_K_M ---
+  // Source: https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF
+  static const String modelFileName = 'Qwen3.5-0.8B-Q4_K_M.gguf';
   static const String modelVersion = '1';
-  // URL will be updated once the official Qwen3.5-0.8B GGUF is published
   static const String modelDownloadUrl =
       'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf';
-  // SHA256 hash: update after verifying the downloaded file
+  // Fill in SHA256 once the file is stable to enable integrity verification.
   static const String modelSha256 = '';
+
+  // --- Vision projector (mmproj) for multimodal inference ---
+  // Must be downloaded alongside the model. ~205 MB.
+  static const String mmprojFileName = 'mmproj-F16.gguf';
+  static const String mmprojDownloadUrl =
+      'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf';
+  static const String mmprojSha256 = '';
 
   // Database
   static const String databaseFileName = 'mediremind.db';
@@ -22,7 +29,8 @@ class AppConstants {
   static const String keyOnboardingDone = 'onboarding_done';
 
   // Notification channels
-  static const String notificationChannelId = 'mediremind_medications';
+  // v2: bumped to force a fresh channel with Importance.max (Android caches channels)
+  static const String notificationChannelId = 'mediremind_medications_v2';
   static const String notificationChannelName = 'Promemoria Farmaci';
   static const String notificationChannelDescription =
       'Notifiche per ricordare di prendere i farmaci';

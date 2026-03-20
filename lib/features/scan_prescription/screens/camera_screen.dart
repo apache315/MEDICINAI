@@ -25,9 +25,9 @@ class _CameraScreenState extends State<CameraScreen> {
       final picker = ImagePicker();
       final file = await picker.pickImage(
         source: source,
-        imageQuality: 90,
-        maxWidth: 2048,
-        maxHeight: 2048,
+        imageQuality: 85,
+        maxWidth: 448,
+        maxHeight: 448,
       );
       if (file != null && mounted) {
         context.push(AppRoutes.review, extra: file.path);

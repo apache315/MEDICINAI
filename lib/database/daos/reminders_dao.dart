@@ -45,4 +45,8 @@ class RemindersDao extends DatabaseAccessor<AppDatabase>
   Future<void> setReminderEnabled(int id, {required bool enabled}) =>
       (update(reminders)..where((t) => t.id.equals(id)))
           .write(RemindersCompanion(enabled: Value(enabled)));
+
+  Future<void> updateReminderTime(int id, int hour, int minute) =>
+      (update(reminders)..where((t) => t.id.equals(id)))
+          .write(RemindersCompanion(hour: Value(hour), minute: Value(minute)));
 }

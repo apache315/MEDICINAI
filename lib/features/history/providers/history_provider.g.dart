@@ -12,13 +12,14 @@ String _$doseHistoryHash() => r'55b3229e39ae3f6a84c3e95628962475e0224d75';
 @ProviderFor(doseHistory)
 final doseHistoryProvider =
     AutoDisposeFutureProvider<List<HistoryDayGroup>>.internal(
-  doseHistory,
-  name: r'doseHistoryProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$doseHistoryHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+      doseHistory,
+      name: r'doseHistoryProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$doseHistoryHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element

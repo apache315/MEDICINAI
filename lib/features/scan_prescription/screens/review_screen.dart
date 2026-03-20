@@ -10,6 +10,7 @@ import '../../../core/router/app_router.dart';
 import '../../../database/app_database.dart';
 import '../../../services/llm_service.dart';
 import '../providers/review_provider.dart';
+import '../providers/scan_log_provider.dart';
 import '../providers/scan_provider.dart';
 import '../widgets/medication_review_card.dart';
 
@@ -58,7 +59,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         loading: () => const _LoadingView(),
         error: (e, _) => _ErrorView(message: e.toString()),
         data: (result) {
-          if (result.hasError) return _ErrorView(message: result.error ?? 'Errore sconosciuto', ocrText: result.ocrText);
+          if (result.hasError) return _ErrorView(message: result.error ?? 'Errore sconosciuto');
           if (medications.isEmpty) return const _EmptyView();
           return _ReviewBody(
             medications: medications,
@@ -141,32 +142,42 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
 // --- Sub-widgets ---
 
-class _LoadingView extends StatelessWidget {
+class _LoadingView extends ConsumerWidget {
   const _LoadingView();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final steps = ref.watch(scanLogProvider);
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircularProgressIndicator(strokeWidth: 4),
-            const SizedBox(height: 24),
-            Text(
-              'Analisi in corso…',
-              style: Theme.of(context).textTheme.titleLarge,
+            Center(
+              child: Text(
+                'Analisi ricetta…',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              "L'AI sta leggendo la ricetta.\nPotrebbe richiedere qualche secondo.",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey[700],
-                    height: 1.5,
-                  ),
+            const SizedBox(height: 6),
+            Center(
+              child: Text(
+                "L'AI sta leggendo la ricetta (30–120 sec).",
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Colors.grey[600]),
+              ),
             ),
+            const SizedBox(height: 28),
+            if (steps.isEmpty)
+              const Center(child: CircularProgressIndicator())
+            else
+              ...steps.map((step) => _ScanStepRow(step: step)),
           ],
         ),
       ),
@@ -174,11 +185,63 @@ class _LoadingView extends StatelessWidget {
   }
 }
 
+class _ScanStepRow extends StatelessWidget {
+  const _ScanStepRow({required this.step});
+
+  final ScanStep step;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget icon = switch (step.status) {
+      ScanStepStatus.running => const SizedBox.square(
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      ScanStepStatus.done =>
+        const Icon(Icons.check_circle, color: Colors.green, size: 20),
+      ScanStepStatus.error =>
+        const Icon(Icons.error_outline, color: Colors.red, size: 20),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          icon,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  step.label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: step.status == ScanStepStatus.error
+                        ? Colors.red
+                        : null,
+                  ),
+                ),
+                if (step.detail != null)
+                  Text(
+                    step.detail!,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, this.ocrText});
+  const _ErrorView({required this.message});
 
   final String message;
-  final String? ocrText;
 
   @override
   Widget build(BuildContext context) {
@@ -201,23 +264,6 @@ class _ErrorView extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5),
             ),
-            if (ocrText != null && ocrText!.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Testo letto dalla ricetta:\n$ocrText',
-                  style: const TextStyle(
-                    fontSize: AppConstants.labelFontSize,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(height: 32),
             SizedBox(
               height: AppConstants.minButtonHeight,

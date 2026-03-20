@@ -12,13 +12,14 @@ String _$todayDosesHash() => r'c4983131ad9a3b49f6a8428a0491f28b5aa650ec';
 @ProviderFor(todayDoses)
 final todayDosesProvider =
     AutoDisposeFutureProvider<List<HomeDoseItem>>.internal(
-  todayDoses,
-  name: r'todayDosesProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$todayDosesHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+      todayDoses,
+      name: r'todayDosesProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$todayDosesHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
@@ -30,14 +31,14 @@ String _$doseActionNotifierHash() =>
 @ProviderFor(DoseActionNotifier)
 final doseActionNotifierProvider =
     AutoDisposeNotifierProvider<DoseActionNotifier, AsyncValue<void>>.internal(
-  DoseActionNotifier.new,
-  name: r'doseActionNotifierProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$doseActionNotifierHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+      DoseActionNotifier.new,
+      name: r'doseActionNotifierProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$doseActionNotifierHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 typedef _$DoseActionNotifier = AutoDisposeNotifier<AsyncValue<void>>;
 // ignore_for_file: type=lint

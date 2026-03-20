@@ -12,14 +12,14 @@ String _$activeMedicationsHash() => r'c625c35d04f3a332be125d8c1e02bc9e5edb6204';
 @ProviderFor(activeMedications)
 final activeMedicationsProvider =
     AutoDisposeStreamProvider<List<Medication>>.internal(
-  activeMedications,
-  name: r'activeMedicationsProvider',
-  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-      ? null
-      : _$activeMedicationsHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+      activeMedications,
+      name: r'activeMedicationsProvider',
+      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+          ? null
+          : _$activeMedicationsHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
@@ -58,21 +58,15 @@ class MedicationRemindersFamily extends Family<AsyncValue<List<Reminder>>> {
   const MedicationRemindersFamily();
 
   /// See also [medicationReminders].
-  MedicationRemindersProvider call(
-    int medicationId,
-  ) {
-    return MedicationRemindersProvider(
-      medicationId,
-    );
+  MedicationRemindersProvider call(int medicationId) {
+    return MedicationRemindersProvider(medicationId);
   }
 
   @override
   MedicationRemindersProvider getProviderOverride(
     covariant MedicationRemindersProvider provider,
   ) {
-    return call(
-      provider.medicationId,
-    );
+    return call(provider.medicationId);
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -94,24 +88,20 @@ class MedicationRemindersFamily extends Family<AsyncValue<List<Reminder>>> {
 class MedicationRemindersProvider
     extends AutoDisposeFutureProvider<List<Reminder>> {
   /// See also [medicationReminders].
-  MedicationRemindersProvider(
-    int medicationId,
-  ) : this._internal(
-          (ref) => medicationReminders(
-            ref as MedicationRemindersRef,
-            medicationId,
-          ),
-          from: medicationRemindersProvider,
-          name: r'medicationRemindersProvider',
-          debugGetCreateSourceHash:
-              const bool.fromEnvironment('dart.vm.product')
-                  ? null
-                  : _$medicationRemindersHash,
-          dependencies: MedicationRemindersFamily._dependencies,
-          allTransitiveDependencies:
-              MedicationRemindersFamily._allTransitiveDependencies,
-          medicationId: medicationId,
-        );
+  MedicationRemindersProvider(int medicationId)
+    : this._internal(
+        (ref) =>
+            medicationReminders(ref as MedicationRemindersRef, medicationId),
+        from: medicationRemindersProvider,
+        name: r'medicationRemindersProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$medicationRemindersHash,
+        dependencies: MedicationRemindersFamily._dependencies,
+        allTransitiveDependencies:
+            MedicationRemindersFamily._allTransitiveDependencies,
+        medicationId: medicationId,
+      );
 
   MedicationRemindersProvider._internal(
     super._createNotifier, {
@@ -191,21 +181,15 @@ class MedicationByIdFamily extends Family<AsyncValue<Medication?>> {
   const MedicationByIdFamily();
 
   /// See also [medicationById].
-  MedicationByIdProvider call(
-    int id,
-  ) {
-    return MedicationByIdProvider(
-      id,
-    );
+  MedicationByIdProvider call(int id) {
+    return MedicationByIdProvider(id);
   }
 
   @override
   MedicationByIdProvider getProviderOverride(
     covariant MedicationByIdProvider provider,
   ) {
-    return call(
-      provider.id,
-    );
+    return call(provider.id);
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -226,24 +210,19 @@ class MedicationByIdFamily extends Family<AsyncValue<Medication?>> {
 /// See also [medicationById].
 class MedicationByIdProvider extends AutoDisposeFutureProvider<Medication?> {
   /// See also [medicationById].
-  MedicationByIdProvider(
-    int id,
-  ) : this._internal(
-          (ref) => medicationById(
-            ref as MedicationByIdRef,
-            id,
-          ),
-          from: medicationByIdProvider,
-          name: r'medicationByIdProvider',
-          debugGetCreateSourceHash:
-              const bool.fromEnvironment('dart.vm.product')
-                  ? null
-                  : _$medicationByIdHash,
-          dependencies: MedicationByIdFamily._dependencies,
-          allTransitiveDependencies:
-              MedicationByIdFamily._allTransitiveDependencies,
-          id: id,
-        );
+  MedicationByIdProvider(int id)
+    : this._internal(
+        (ref) => medicationById(ref as MedicationByIdRef, id),
+        from: medicationByIdProvider,
+        name: r'medicationByIdProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$medicationByIdHash,
+        dependencies: MedicationByIdFamily._dependencies,
+        allTransitiveDependencies:
+            MedicationByIdFamily._allTransitiveDependencies,
+        id: id,
+      );
 
   MedicationByIdProvider._internal(
     super._createNotifier, {
@@ -309,5 +288,6 @@ class _MedicationByIdProviderElement
   @override
   int get id => (origin as MedicationByIdProvider).id;
 }
+
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

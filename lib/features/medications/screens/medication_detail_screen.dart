@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../database/app_database.dart';
+import '../../../services/notification_service.dart';
 import '../providers/medications_provider.dart';
 
 class MedicationDetailScreen extends ConsumerWidget {
@@ -250,13 +251,13 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _ReminderTile extends StatelessWidget {
+class _ReminderTile extends ConsumerWidget {
   const _ReminderTile({required this.reminder});
 
   final Reminder reminder;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final h = reminder.hour.toString().padLeft(2, '0');
     final m = reminder.minute.toString().padLeft(2, '0');
     return ListTile(
@@ -269,10 +270,43 @@ class _ReminderTile extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
-      trailing: Icon(
-        reminder.enabled ? Icons.notifications_active : Icons.notifications_off,
-        color: reminder.enabled ? Colors.green[700] : Colors.grey,
-        size: 26,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.edit, size: 24, color: Color(0xFF1565C0)),
+            tooltip: 'Modifica orario',
+            onPressed: () => _editTime(context, ref),
+          ),
+          Icon(
+            reminder.enabled ? Icons.notifications_active : Icons.notifications_off,
+            color: reminder.enabled ? Colors.green[700] : Colors.grey,
+            size: 26,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editTime(BuildContext context, WidgetRef ref) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: reminder.hour, minute: reminder.minute),
+      helpText: 'Seleziona orario promemoria',
+    );
+    if (picked == null || !context.mounted) return;
+
+    final db = ref.read(appDatabaseProvider);
+    await db.remindersDao.updateReminderTime(reminder.id, picked.hour, picked.minute);
+    await NotificationService.scheduleAllReminders(db);
+
+    if (!context.mounted) return;
+    ref.invalidate(medicationRemindersProvider(reminder.medicationId));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Promemoria aggiornato: ${picked.hour.toString().padLeft(2, "0")}:${picked.minute.toString().padLeft(2, "0")}',
+        ),
       ),
     );
   }
